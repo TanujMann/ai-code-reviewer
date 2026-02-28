@@ -1,104 +1,144 @@
-"""
-main.py
-=======
-FastAPI application entry point.
-Run with: uvicorn app.main:app --reload
-"""
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
-from contextlib import asynccontextmanager
 from loguru import logger
-
-from app.core.config import settings
-from app.api.routes import router
-from app.services.llm_service import get_llm_service
-
-
-# ─────────────────────────────────────────────
-# STARTUP / SHUTDOWN
-# ─────────────────────────────────────────────
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Initialize services on startup."""
-    logger.info("=" * 50)
-    logger.info(f"🚀 Starting {settings.APP_NAME} v{settings.APP_VERSION}")
-    logger.info(f"   Model backend: {settings.MODEL_BACKEND}")
-    logger.info("=" * 50)
-    
-    # Pre-load the LLM service
-    service = get_llm_service()
-    logger.info(f"✅ API ready! Docs at: http://localhost:{settings.PORT}/docs")
-    
-    yield  # App runs here
-    
-    logger.info("Shutting down...")
-
-
-# ─────────────────────────────────────────────
-# APP INITIALIZATION
-# ─────────────────────────────────────────────
+import time
+import re
 
 app = FastAPI(
-    title=settings.APP_NAME,
-    version=settings.APP_VERSION,
-    description="""
-## 🤖 AI Code Review Assistant API
-
-Submit code snippets and receive:
-- **Quality scores** (0-100)
-- **Bug detection** with line numbers
-- **Security vulnerability** analysis
-- **Improvement suggestions** with code examples
-
-### Backends
-- `demo`: Rule-based (works without GPU)
-- `openai`: GPT-4o-mini (needs API key)
-- `local`: Fine-tuned CodeLlama (needs GPU)
-
-Set `MODEL_BACKEND` in `.env` to switch.
-    """,
-    lifespan=lifespan,
-    docs_url="/docs",
-    redoc_url="/redoc",
+    title="AI Code Reviewer",
+    description="AI-powered code review API",
+    version="1.0.0"
 )
 
-# ─────────────────────────────────────────────
-# MIDDLEWARE
-# ─────────────────────────────────────────────
-
-# CORS — allows VS Code extension and browser to call the API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],         # In production, restrict to your domain
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ─────────────────────────────────────────────
-# ROUTES
-# ─────────────────────────────────────────────
+@app.on_event("startup")
+async def startup():
+    logger.info("Starting AI Code Reviewer v1.0.0")
 
-app.include_router(router, prefix="/api/v1")
-
-@app.get("/", include_in_schema=False)
+@app.get("/")
 async def root():
-    """Redirect root to API docs."""
-    return RedirectResponse(url="/docs")
+    return {"message": "AI Code Reviewer API", "version": "1.0.0", "docs": "/docs"}
 
+@app.get("/api/v1/health")
+async def health():
+    return {
+        "status": "healthy",
+        "model_loaded": True,
+        "model_backend": "demo",
+        "version": "1.0.0"
+    }
 
-# ─────────────────────────────────────────────
-# RUN DIRECTLY
-# ─────────────────────────────────────────────
+@app.post("/api/v1/review")
+async def review_code(request: dict):
+    start = time.time()
+    code = request.get("code", "")
+    language = request.get("language", "python")
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(
-        "app.main:app",
-        host=settings.HOST,
-        port=settings.PORT,
-        reload=settings.DEBUG,
-    )
+    bugs = []
+    security_issues = []
+    improvements = []
+    score = 100
+
+    # Check SQL Injection
+    if re.search(r'f["\'].*SELECT.*\{', code, re.IGNORECASE):
+        security_issues.append({
+            "line": None,
+            "issue_type": "SQL Injection",
+            "description": "f-string used in SQL query — vulnerable to SQL injection",
+            "severity": "critical",
+            "fix": "Use parameterized queries: cursor.execute('SELECT * FROM users WHERE id = %s', (id,))"
+        })
+        score -= 30
+
+    # Check eval
+    if 'eval(' in code:
+        security_issues.append({
+            "line": None,
+            "issue_type": "Code Injection",
+            "description": "eval() is dangerous — allows arbitrary code execution",
+            "severity": "critical",
+            "fix": "Remove eval() and use safer alternatives"
+        })
+        score -= 25
+
+    # Check MD5
+    if 'md5' in code.lower():
+        security_issues.append({
+            "line": None,
+            "issue_type": "Weak Cryptography",
+            "description": "MD5 is cryptographically broken — don't use for passwords",
+            "severity": "high",
+            "fix": "Use bcrypt or argon2: import bcrypt; bcrypt.hashpw(password, bcrypt.gensalt())"
+        })
+        score -= 20
+
+    # Check hardcoded password
+    if re.search(r'password\s*=\s*["\']', code, re.IGNORECASE):
+        security_issues.append({
+            "line": None,
+            "issue_type": "Hardcoded Credentials",
+            "description": "Hardcoded password found in source code",
+            "severity": "critical",
+            "fix": "Use environment variables: os.environ.get('PASSWORD')"
+        })
+        score -= 15
+
+    # Check division
+    if re.search(r'/\s*\w+', code) and 'def divide' in code:
+        bugs.append({
+            "line": None,
+            "description": "Division by zero risk — no zero check",
+            "severity": "medium",
+            "suggestion": "Add: if b == 0: raise ValueError('Cannot divide by zero')"
+        })
+        score -= 10
+
+    # Improvements
+    if 'def ' in code and '->' not in code:
+        improvements.append({
+            "line": None,
+            "category": "Type Hints",
+            "description": "Add type hints to functions",
+            "code_example": "def login(username: str, password: str) -> dict:"
+        })
+
+    score = max(0, score)
+
+    # Grade
+    if score >= 90: grade = "A"
+    elif score >= 80: grade = "B"
+    elif score >= 70: grade = "C"
+    elif score >= 60: grade = "D"
+    else: grade = "F"
+
+    elapsed = (time.time() - start) * 1000
+
+    return {
+        "score": score,
+        "grade": grade,
+        "breakdown": {
+            "correctness": min(100, score + 10),
+            "security": max(0, 100 - len(security_issues) * 25),
+            "performance": 80,
+            "readability": 75,
+            "maintainability": 75
+        },
+        "bugs": bugs,
+        "security_issues": security_issues,
+        "improvements": improvements,
+        "summary": f"Found {len(bugs)} bugs and {len(security_issues)} security issues.",
+        "language_detected": language,
+        "review_time_ms": round(elapsed, 2),
+        "model_used": "demo"
+    }
+
+@app.post("/api/v1/quick-scan")
+async def quick_scan(request: dict):
+    return await review_code(request)
