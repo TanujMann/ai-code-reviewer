@@ -1,0 +1,17 @@
+# Python
+backend/venv/
+backend/__pycache__/
+backend/.env
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Node
+extension/node_modules/
+extension/out/
+*.vsix
+
+# General
+.DS_Store
+*.log
+.vscode/settings.json

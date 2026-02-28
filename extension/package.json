@@ -1,0 +1,141 @@
+{
+  "name": "ai-code-reviewer",
+  "displayName": "AI Code Reviewer",
+  "description": "AI-powered code review with bug detection, security analysis, and improvement suggestions",
+  "version": "1.0.0",
+  "publisher": "your-name",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Linters", "Other"],
+  "keywords": ["AI", "code review", "bugs", "security", "quality"],
+  "icon": "media/icon.png",
+  "activationEvents": [
+    "onLanguage:python",
+    "onLanguage:javascript",
+    "onLanguage:typescript",
+    "onLanguage:java"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "aiReviewer.reviewFile",
+        "title": "AI: Review This File",
+        "icon": "$(robot)"
+      },
+      {
+        "command": "aiReviewer.reviewSelection",
+        "title": "AI: Review Selected Code"
+      },
+      {
+        "command": "aiReviewer.quickScan",
+        "title": "AI: Quick Security Scan"
+      },
+      {
+        "command": "aiReviewer.clearDiagnostics",
+        "title": "AI: Clear Review Results"
+      },
+      {
+        "command": "aiReviewer.openSettings",
+        "title": "AI Code Reviewer: Settings"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "aiReviewer.reviewFile",
+          "group": "ai_reviewer@1",
+          "when": "editorTextFocus"
+        },
+        {
+          "command": "aiReviewer.reviewSelection",
+          "group": "ai_reviewer@2",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "aiReviewer.quickScan",
+          "group": "ai_reviewer@3",
+          "when": "editorTextFocus"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "aiReviewer.reviewFile",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "aiReviewer.reviewFile",
+        "key": "ctrl+shift+r",
+        "mac": "cmd+shift+r",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "aiReviewer.quickScan",
+        "key": "ctrl+shift+s",
+        "mac": "cmd+shift+s",
+        "when": "editorTextFocus"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "aiReviewer",
+          "title": "AI Code Reviewer",
+          "icon": "$(robot)"
+        }
+      ]
+    },
+    "views": {
+      "aiReviewer": [
+        {
+          "type": "webview",
+          "id": "aiReviewer.resultsPanel",
+          "name": "Review Results"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "AI Code Reviewer",
+      "properties": {
+        "aiReviewer.apiUrl": {
+          "type": "string",
+          "default": "http://localhost:8000/api/v1",
+          "description": "URL of the AI Code Reviewer backend API"
+        },
+        "aiReviewer.reviewOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically review code on file save"
+        },
+        "aiReviewer.showInlineDecorations": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show inline decorations for bugs and issues"
+        },
+        "aiReviewer.minScoreToWarn": {
+          "type": "number",
+          "default": 60,
+          "description": "Show warning if code score drops below this value"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0",
+    "@vscode/vsce": "^2.22.0"
+  }
+}
